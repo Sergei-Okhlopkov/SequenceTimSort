@@ -4,21 +4,25 @@
 #include <fstream>
 #include <time.h>
 #include <algorithm>
+#include <vector>
+#include <cmath>
 
 using namespace std;
 
-const int N = 1000000;
+const int N = 4000;
+const int GALLOPCOUNT = 7; // счётчик для режима галопа. После успешных добавлений из одного массива включается галлоп
 const string inputFN = "array.txt";
 const string outputFN = "sortedArray.txt";
 
 int* GenerateArr();
-void WriteArrToFile(int arr[]);
+void WriteArrToFile(int* arr);
 
 int* ReadArrToFile();
-int* TimSort(int arr[]);
-void InsertionSort(int arr[], int left, int right);
-int* MergeSort(int arr[], int left[], int leftSize, int right[], int rightSize, int* k);
+void TimSort(int* arr);
+void InsertionSort(int* arr, int left, int right);
+void MergeSort(int* arr, int* left, int* right, int* k);
 int GetMinrun(int n);
+void Gallop(int* arr, int i, int j, int* k, int* one, int* two, int* gallopSide);
 
 int main() {
 
@@ -26,15 +30,15 @@ int main() {
 	SetConsoleOutputCP(1251);
 
 	int* arr = ReadArrToFile(); //считать массив из файла
-	//int* arr = GenerateArr();
-	//WriteArrToFile(arr);
-
+		
 	clock_t start = clock();
 	
-	arr = TimSort(arr);
+	TimSort(arr);
 
 	clock_t end = clock();
+
 	double seconds = (double)(end - start) / CLOCKS_PER_SEC;
+
 	printf("%f", seconds);
 
 	WriteArrToFile(arr);
@@ -48,7 +52,6 @@ int main() {
 int* GenerateArr()
 {
 	srand(time(0));
-
 	int* arr = new int[N];
 
 	for (int i = 0; i < N; i++)
@@ -59,10 +62,9 @@ int* GenerateArr()
 	return arr;
 }
 
-void WriteArrToFile(int arr[])
+void WriteArrToFile(int* arr)
 {
 	ofstream out;
-	//out.open(inputFN);
 	out.open(outputFN);
 	if (out.is_open())
 	{
@@ -91,20 +93,14 @@ int* ReadArrToFile()
 	return arr;
 }
 
-int* TimSort(int arr[])
+void TimSort(int* arr)
 {
 	// 1-ый этап. Нахождение длины Run'а
 	int minRunSize = GetMinrun(N);
-	int* arr2 = new int[N];
-
+	
 	// 2-ой этап сортировка вставками подмассивов
 	for (int i = 0; i < N; i += minRunSize) {
 		InsertionSort(arr, i, min((i + minRunSize - 1), (N - 1)));
-	}
-
-	for (int i = 0; i < N; i++)
-	{
-		arr2[i] = arr[i];
 	}
 
 	for (int size = minRunSize; size <= N; size = 2 * size)
@@ -124,25 +120,26 @@ int* TimSort(int arr[])
 
 			for (int i = 0; i < leftSize; i++)
 			{
-				leftArr[i] = arr2[i + left];
+				leftArr[i] = arr[i + left];
 			}
 
 			for (int i = 0; i < rightSize; i++)
 			{
-				rightArr[i] = arr2[i + mid + 1];
+				rightArr[i] = arr[i + mid + 1];
 			}
 
 			if (mid < right) {
-				arr2 = MergeSort(arr2, leftArr, leftSize, rightArr, rightSize, &k);
+				MergeSort(arr, leftArr, rightArr, &k);
 			}
 
-			delete[] leftArr, rightArr;
+			// освобождение памяти
+			delete[] leftArr;
+			delete[] rightArr;
 		}
 	}
-	return arr2;
 }
 
-void InsertionSort(int arr[], int left, int right)
+void InsertionSort(int* arr, int left, int right)
 {
 	for (int i = left + 1; i <= right; i++) 
 	{
@@ -158,38 +155,88 @@ void InsertionSort(int arr[], int left, int right)
 	}
 }
 
-int* MergeSort(int arr[], int left[], int leftSize, int right[], int rightSize, int* k) //TODO: тут меняется основной массив при проходе. Нужно сделать копии
+void MergeSort(int* arr, int* left, int* right, int* k) //TODO: тут меняется основной массив при проходе. Нужно сделать копии
 {
-	int* mas = new int[N];
+	int gallopLeft = 0;
+	int gallopRight = 0;
 
-	for (int i = 0; i < N; i++)
-	{
-		mas[i] = arr[i];
-	}
+	int leftSize = _msize(left) / sizeof(int);
+	int rightSize = _msize(right) / sizeof(int);
 
 	int i = 0; // индекс на массиве слева
 	int j = 0; // индекс на массиве справа
-	while (i < leftSize && j < rightSize) {
-		if (left[i] <= right[j]) {
-			mas[(*k)++] = left[i++];	// сначала в результирующий массив по индексу k записывается число из левого массива по индексу i,
-									// затем передвижение индекса в левом и результирующем массиве на один
+	while (i < leftSize && j < rightSize) 
+	{
+		if (left[i] <= right[j]) 
+		{
+			arr[(*k)++] = left[i++];	// сначала в результирующий массив по индексу k записывается число из левого массива по индексу i,
+										// затем передвижение индекса в левом и результирующем массиве на один
+			gallopRight = 0;
+			gallopLeft++;
 		}
-		else {
-			mas[(*k)++] = right[j++];	// сначала в результирующий массив по индексу k записывается число из правого массива по индексу j,
-									// затем передвижение индекса в правом и результирующем массиве на один
+		else 
+		{
+			arr[(*k)++] = right[j++];	// сначала в результирующий массив по индексу k записывается число из правого массива по индексу j,
+										// затем передвижение индекса в правом и результирующем массиве на один
+			gallopLeft = 0;
+			gallopRight++;
 		}
+
+		//левый массив преобладает
+		//if (gallopLeft >= GALLOPCOUNT) 
+		//{
+		//	Gallop(arr, i, j, k, left, right, &gallopLeft);
+		//	//int gallopDegree = 0;
+
+		//	//while (i + pow(2, gallopDegree) < leftSize && // галоп не выходит за границу массива
+		//	//	left[i + pow(2, gallopDegree)] <= right[j]) // сравнение элемента с левого массива (с шагом + галоп) с элементов с правого массива
+		//	//{ 
+		//	//	gallopDegree++; 
+		//	//}
+
+		//	//gallopDegree >= 1 ? gallopDegree-- : gallopDegree = 0; // если с 0 степени не сдвинулись, то так и остаёмся с минимальным шагом галопа
+		//	//// Если шаг галопа был осуществлён, то необходимо вычесть единицу, так как при последней успешной итерации шаг галопа увеличивается, приводя 
+		//	////нас к в индексу в массиве, который либо выходит за границы, либо больше элемента из массива right
+
+		//	//int iEnd = i + pow(2, gallopDegree); // до какого индекса копируем
+
+		//	//copy_n(left[i], iEnd - i + 1, arr[(*k)]);
+		//	//(*k) += iEnd - i + 1;
+		//	//gallopLeft = 0;
+		//}
+
+		////правый массив преобладает
+		//if (gallopRight >= GALLOPCOUNT) {
+
+		//	Gallop(arr, i, j, k, right, left, &gallopRight);
+		//	//int gallopDegree = 0;
+
+		//	//while (j + pow(2, gallopDegree) < rightSize && // галоп не выходит за границу массива
+		//	//	right[j + pow(2, gallopDegree)] <= left[i]) // сравнение элемента с левого массива (с шагом + галоп) с элементов с правого массива
+		//	//{
+		//	//	gallopDegree++;
+		//	//}
+
+		//	//gallopDegree >= 1 ? gallopDegree-- : gallopDegree = 0; // если с 0 степени не сдвинулись, то так и остаёмся с минимальным шагом галопа
+		//	//// Если шаг галопа был осуществлён, то необходимо вычесть единицу, так как при последней успешной итерации шаг галопа увеличивается, приводя 
+		//	////нас к в индексу в массиве, который либо выходит за границы, либо больше элемента из массива right
+
+		//	//int jEnd = j + pow(2, gallopDegree); // до какого индекса копируем
+
+		//	//copy_n(right[j], jEnd - j + 1, arr[(*k)]);
+		//	//(*k) += jEnd - j + 1;
+		//	//gallopRight = 0;
+		//}
 	}
 
 	// при окончании одного из массивов в результирующий дописывается остаток второго массива
 	while (i < leftSize) {
-		mas[(*k)++] = left[i++];
+		arr[(*k)++] = left[i++];
 	}
 
 	while (j < rightSize) {
-		mas[(*k)++] = right[j++];
+		arr[(*k)++] = right[j++];
 	}
-
-	return mas;
 }
 
 int GetMinrun(int n)
@@ -201,3 +248,32 @@ int GetMinrun(int n)
 	}
 	return n + r;
 }
+
+//void Gallop(int* arr, int i, int j, int* k, int* one, int* two, int* gallopSide)
+//{
+//	int gallopDegree = 0;
+//	int oneSize = one.size();
+//	int twoSize = two.size();
+//
+//	while (i + pow(2, gallopDegree) < oneSize && // галоп не выходит за границу массива
+//		one[i + pow(2, gallopDegree)] <= two[j]) // сравнение элемента с массива one (с шагом + галоп) с элементов с массива two
+//	{
+//		gallopDegree++;
+//	}
+//
+//	gallopDegree >= 1 ? gallopDegree-- : gallopDegree = 0; // если с 0 степени не сдвинулись, то так и остаёмся с минимальным шагом галопа
+//	// Если шаг галопа был осуществлён, то необходимо вычесть единицу, так как при последней успешной итерации шаг галопа увеличивается, приводя 
+//	//нас к в индексу в массиве, который либо выходит за границы, либо больше элемента из массива two
+//
+//	int iEnd = i + pow(2, gallopDegree); // до какого индекса копируем
+//
+//	/*for (i;  i <= iEnd; i++)
+//	{
+//		arr[(*k)++] = one[i];
+//	}*/
+//	arr.erase(arr.begin() + i, arr.begin() + iEnd);
+//	//arr.insert(arr.begin() + i, )
+//	/*copy_n(one.begin() + i, iEnd - i + 1, arr.begin()+(*k));
+//	(*k) += iEnd - i + 1;*/
+//	(*gallopSide) = 0;
+//}
