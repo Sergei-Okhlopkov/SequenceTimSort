@@ -9,7 +9,7 @@
 
 using namespace std;
 
-const int N = 4000;
+const int N = 1000000;
 const int GALLOPCOUNT = 7; // счётчик для режима галопа. После успешных добавлений из одного массива включается галлоп
 const string inputFN = "array.txt";
 const string outputFN = "sortedArray.txt";
@@ -22,7 +22,8 @@ void TimSort(int* arr);
 void InsertionSort(int* arr, int left, int right);
 void MergeSort(int* arr, int* left, int* right, int* k);
 int GetMinrun(int n);
-void Gallop(int* arr, int i, int j, int* k, int* one, int* two, int* gallopSide);
+void Gallop(int* arr, int* i, int j, int* k, int* one, int* two);
+int GetArrSize(int* arr);
 
 int main() {
 
@@ -155,13 +156,13 @@ void InsertionSort(int* arr, int left, int right)
 	}
 }
 
-void MergeSort(int* arr, int* left, int* right, int* k) //TODO: тут меняется основной массив при проходе. Нужно сделать копии
+void MergeSort(int* arr, int* left, int* right, int* k) 
 {
 	int gallopLeft = 0;
 	int gallopRight = 0;
 
-	int leftSize = _msize(left) / sizeof(int);
-	int rightSize = _msize(right) / sizeof(int);
+	int leftSize = GetArrSize(left);
+	int rightSize = GetArrSize(right);
 
 	int i = 0; // индекс на массиве слева
 	int j = 0; // индекс на массиве справа
@@ -176,57 +177,25 @@ void MergeSort(int* arr, int* left, int* right, int* k) //TODO: тут меняется осн
 		}
 		else 
 		{
-			arr[(*k)++] = right[j++];	// сначала в результирующий массив по индексу k записывается число из правого массива по индексу j,
+			arr[(*k)++] = right[j++];	// сначала в результирующий 1массив по индексу k записывается число из правого массива по индексу j,
 										// затем передвижение индекса в правом и результирующем массиве на один
 			gallopLeft = 0;
 			gallopRight++;
 		}
 
 		//левый массив преобладает
-		//if (gallopLeft >= GALLOPCOUNT) 
-		//{
-		//	Gallop(arr, i, j, k, left, right, &gallopLeft);
-		//	//int gallopDegree = 0;
+		if (gallopLeft >= GALLOPCOUNT) 
+		{
+			Gallop(arr, &i, j, k, left, right);
+			gallopLeft = 0;
+		}
 
-		//	//while (i + pow(2, gallopDegree) < leftSize && // галоп не выходит за границу массива
-		//	//	left[i + pow(2, gallopDegree)] <= right[j]) // сравнение элемента с левого массива (с шагом + галоп) с элементов с правого массива
-		//	//{ 
-		//	//	gallopDegree++; 
-		//	//}
+		//правый массив преобладает
+		if (gallopRight >= GALLOPCOUNT) {
 
-		//	//gallopDegree >= 1 ? gallopDegree-- : gallopDegree = 0; // если с 0 степени не сдвинулись, то так и остаёмся с минимальным шагом галопа
-		//	//// Если шаг галопа был осуществлён, то необходимо вычесть единицу, так как при последней успешной итерации шаг галопа увеличивается, приводя 
-		//	////нас к в индексу в массиве, который либо выходит за границы, либо больше элемента из массива right
-
-		//	//int iEnd = i + pow(2, gallopDegree); // до какого индекса копируем
-
-		//	//copy_n(left[i], iEnd - i + 1, arr[(*k)]);
-		//	//(*k) += iEnd - i + 1;
-		//	//gallopLeft = 0;
-		//}
-
-		////правый массив преобладает
-		//if (gallopRight >= GALLOPCOUNT) {
-
-		//	Gallop(arr, i, j, k, right, left, &gallopRight);
-		//	//int gallopDegree = 0;
-
-		//	//while (j + pow(2, gallopDegree) < rightSize && // галоп не выходит за границу массива
-		//	//	right[j + pow(2, gallopDegree)] <= left[i]) // сравнение элемента с левого массива (с шагом + галоп) с элементов с правого массива
-		//	//{
-		//	//	gallopDegree++;
-		//	//}
-
-		//	//gallopDegree >= 1 ? gallopDegree-- : gallopDegree = 0; // если с 0 степени не сдвинулись, то так и остаёмся с минимальным шагом галопа
-		//	//// Если шаг галопа был осуществлён, то необходимо вычесть единицу, так как при последней успешной итерации шаг галопа увеличивается, приводя 
-		//	////нас к в индексу в массиве, который либо выходит за границы, либо больше элемента из массива right
-
-		//	//int jEnd = j + pow(2, gallopDegree); // до какого индекса копируем
-
-		//	//copy_n(right[j], jEnd - j + 1, arr[(*k)]);
-		//	//(*k) += jEnd - j + 1;
-		//	//gallopRight = 0;
-		//}
+			Gallop(arr, &j, i, k, right, left);
+			gallopRight = 0;
+		}
 	}
 
 	// при окончании одного из массивов в результирующий дописывается остаток второго массива
@@ -249,31 +218,55 @@ int GetMinrun(int n)
 	return n + r;
 }
 
-//void Gallop(int* arr, int i, int j, int* k, int* one, int* two, int* gallopSide)
-//{
-//	int gallopDegree = 0;
-//	int oneSize = one.size();
-//	int twoSize = two.size();
-//
-//	while (i + pow(2, gallopDegree) < oneSize && // галоп не выходит за границу массива
-//		one[i + pow(2, gallopDegree)] <= two[j]) // сравнение элемента с массива one (с шагом + галоп) с элементов с массива two
-//	{
-//		gallopDegree++;
-//	}
-//
-//	gallopDegree >= 1 ? gallopDegree-- : gallopDegree = 0; // если с 0 степени не сдвинулись, то так и остаёмся с минимальным шагом галопа
-//	// Если шаг галопа был осуществлён, то необходимо вычесть единицу, так как при последней успешной итерации шаг галопа увеличивается, приводя 
-//	//нас к в индексу в массиве, который либо выходит за границы, либо больше элемента из массива two
-//
-//	int iEnd = i + pow(2, gallopDegree); // до какого индекса копируем
-//
-//	/*for (i;  i <= iEnd; i++)
-//	{
-//		arr[(*k)++] = one[i];
-//	}*/
-//	arr.erase(arr.begin() + i, arr.begin() + iEnd);
-//	//arr.insert(arr.begin() + i, )
-//	/*copy_n(one.begin() + i, iEnd - i + 1, arr.begin()+(*k));
-//	(*k) += iEnd - i + 1;*/
-//	(*gallopSide) = 0;
-//}
+void Gallop(int* arr, int *i, int j, int* k, int* one, int* two)
+{
+	int gallopDegree = 0;
+	int oneSize = GetArrSize(one);
+	int twoSize = GetArrSize(two);
+
+	while ((*i) + pow(2, gallopDegree) < oneSize && // галоп не выходит за границу массива
+		one[(*i) + (int)pow(2, gallopDegree)] <= two[j]) // сравнение элемента с массива one (с шагом + галоп) с элементов с массива two
+	{
+		gallopDegree++;
+	}
+
+	int h = 1; //дальнейший шаг поиска (пойдёт на уменьшение)
+
+	if (gallopDegree > 0) {
+		h = pow(2, gallopDegree) - pow(2, gallopDegree - 1); 
+		gallopDegree--;
+		int iEnd = (*i) + (int)pow(2, gallopDegree);
+
+		while (true) {
+			if (iEnd < oneSize && one[iEnd] <= two[j]) {
+				if (h != 1) {
+					h /= 2;
+				}
+				iEnd += h;
+			}
+			else {
+				if (h != 1) {
+					h /= 2;
+				}
+				
+				iEnd -= h;
+			}
+
+			if (one[iEnd] <= two[j] &&
+				((iEnd < oneSize - 1 && one[iEnd + 1] > two[j]) || (iEnd == oneSize - 1 && one[iEnd] <= two[j]))) { // если данный индекс является крайним в массиве one || если следующее число больше,
+				//чем two[j], и предыдущее меньше либо равно текущему, то мы нашли конечный индекс для копирования 
+				break;
+			}
+		}
+
+		for ((*i); (*i) < iEnd + 1; (*i)++)
+		{
+			arr[(*k)++] = one[*i];
+		}
+	}	
+}
+
+int GetArrSize(int* arr)
+{
+	return _msize(arr) / sizeof(int);
+}
